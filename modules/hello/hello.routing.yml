@@ -1,0 +1,6 @@
+hello.content:
+  path: '/hello'
+  defaults:
+    _controller: '\Drupal\hello\Controller\HelloController::sayhello'
+  requirements:
+    _permission: 'TRUE'

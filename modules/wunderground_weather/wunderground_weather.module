@@ -1,0 +1,276 @@
+<?php
+
+const WUNDERGROUND_WEATHER_BASE_URL = 'http://api.wunderground.com/';
+
+/**
+ * Implements hook_menu().
+ */
+function wunderground_weather_menu_link_defaults() {
+  // Admin page.
+  $items['wunderground_weather.admin_settings'] = [
+    'link_title' => 'Wunderground weather settings',
+    'description' => 'Perform administration tasks for Wunderground weather.',
+    'route_name' => 'wunderground_weather.admin_settings',
+    'parent' => 'system.admin.config.services',
+  ];
+
+  // Menu item for getting location by autocomplete.
+  $items['wunderground_weather.autocomplete'] = [
+    'link_title' => 'Wunderground weather location autocomplete',
+    'route_name' => 'wunderground_weather.autocomplete',
+  ];
+
+  return $items;
+}
+
+/**
+ * Implements hook_theme().
+ */
+function wunderground_weather_theme() {
+  return [
+    'wunderground_weather_forecast' => [
+      'variables' => [
+        'title' => NULL,
+        'data' => NULL,
+        'icon_set' => NULL,
+        'fields' => NULL,
+      ],
+      'function' => 'theme_wunderground_weather_forecast',
+    ],
+    'wunderground_weather_current' => [
+      'variables' => [
+        'image' => NULL,
+        'summary' => NULL,
+      ],
+      'template' => 'wunderground_weather_current',
+    ],
+  ];
+}
+
+/**
+ * Theme function to render weather forecast block.
+ */
+function theme_wunderground_weather_forecast($variables) {
+  $header = [];
+  $rows = [];
+
+  foreach ($variables['data'] as $i => $day) {
+    if (!empty($day) && is_numeric($i)) {
+      // Table header.
+      $header[] = ['data' => $day->date->weekday . ' ' . $day->date->day . ' ' . $day->date->monthname];
+      // Build rows.
+      foreach ($variables['fields'] as $field => $display) {
+        if ($display) {
+          switch ($field) {
+
+            case 'image':
+              $description = t('Weather forecast for !date', ['!date' => $day->date->weekday . ' ' . $day->date->day . ' ' . $day->date->monthname]);
+              $uri = Drupal\wunderground_weather\Plugin\Block\WeatherBlockBase::getIconUrl($variables['icon_set'], $day->icon);
+
+              $image = [
+                '#theme' => 'image',
+                '#uri' => $uri,
+                '#alt' => $description,
+                '#stitle' => $description,
+              ];
+              $rows[$field][] = render($image);
+              break;
+
+            case 'temperature':
+              $rows[$field][] = $day->high->celsius . ' ° / ' . $day->low->celsius . ' °';
+              break;
+
+            case 'conditions':
+              $rows[$field][] = $day->conditions;
+              break;
+
+            case 'rain':
+              $rows[$field][] = $day->pop . '% ' . t('rain');
+              break;
+
+            case 'wind':
+              $rows[$field][] = _wunderground_weather_speed_to_beaufort($day->avewind->kph, 'kph') . ' bft';
+              break;
+          }
+        }
+      }
+    }
+  }
+
+  // Variables for hook_table.
+  $table = [
+    '#theme' => 'table',
+    '#header' => $header,
+    '#rows' => $rows,
+  ];
+
+  // Return a table.
+  return render($table);
+}
+
+/**
+ * Convert wind speed to beaufort.
+ *
+ * @param int $speed
+ *   Windspeed in kp/h or m/h.
+ *
+ * @param string $unit
+ *   Windspeed unit.
+ *
+ * @return int
+ *   Windspeed in Bft.
+ */
+function _wunderground_weather_speed_to_beaufort($speed, $unit) {
+  $speed = $unit == 'kph' ? $speed : $speed * 1.6;
+
+  switch (TRUE) {
+    case ($speed < 1):
+      $bft = 0;
+      break;
+
+    case ($speed < 5.6):
+      $bft = 1;
+      break;
+
+    case ($speed < 12):
+      $bft = 2;
+      break;
+
+    case ($speed < 20):
+      $bft = 3;
+      break;
+
+    case ($speed < 29):
+      $bft = 4;
+      break;
+
+    case ($speed < 39):
+      $bft = 5;
+      break;
+
+    case ($speed < 50):
+      $bft = 6;
+      break;
+
+    case ($speed < 62):
+      $bft = 7;
+      break;
+
+    case ($speed < 75):
+      $bft = 8;
+      break;
+
+    case ($speed < 89):
+      $bft = 9;
+      break;
+
+    case ($speed < 103):
+      $bft = 10;
+      break;
+
+    case ($speed < 118):
+      $bft = 11;
+      break;
+
+    case ($speed >= 118):
+      $bft = 12;
+      break;
+
+    default:
+      $bft = 100;
+      break;
+  }
+  return $bft;
+}
+
+/**
+ * An array of all supported languages by Wunderground Weather.
+ *
+ * @return array
+ */
+function _wunderground_weather_languages() {
+  return [
+    'AF' => 'Afrikaans',
+    'AL' => 'Albanian',
+    'AR' => 'Arabic',
+    'HY' => 'Armenian',
+    'AZ' => 'Azerbaijani',
+    'EU' => 'Basque',
+    'BY' => 'Belarusian',
+    'BU' => 'Bulgarian',
+    'LI' => 'British English',
+    'MY' => 'Burmese',
+    'CA' => 'Catalan',
+    'CN' => 'Chinese - Simplified',
+    'TW' => 'Chinese - Traditional',
+    'CR' => 'Croatian',
+    'CZ' => 'Czech',
+    'DK' => 'Danish',
+    'DV' => 'Dhivehi',
+    'NL' => 'Dutch',
+    'EN' => 'English',
+    'EO' => 'Esperanto',
+    'ET' => 'Estonian',
+    'FA' => 'Farsi',
+    'FI' => 'Finnish',
+    'FR' => 'French',
+    'FC' => 'French Canadian',
+    'GZ' => 'Galician',
+    'DL' => 'German',
+    'KA' => 'Georgian',
+    'GR' => 'Greek',
+    'GU' => 'Gujarati',
+    'HT' => 'Haitian Creole',
+    'IL' => 'Hebrew',
+    'HI' => 'Hindi',
+    'HU' => 'Hungarian',
+    'IS' => 'Icelandic',
+    'IO' => 'Ido',
+    'ID' => 'Indonesian',
+    'IR' => 'Irish Gaelic',
+    'IT' => 'Italian',
+    'JP' => 'Japanese',
+    'JW' => 'Javanese',
+    'KM' => 'Khmer',
+    'KR' => 'Korean',
+    'KU' => 'Kurdish',
+    'LA' => 'Latin',
+    'LV' => 'Latvian',
+    'LT' => 'Lithuanian',
+    'ND' => 'Low German',
+    'MK' => 'Macedonian',
+    'MT' => 'Maltese',
+    'GM' => 'Mandinka',
+    'MI' => 'Maori',
+    'MR' => 'Marathi',
+    'MN' => 'Mongolian',
+    'NO' => 'Norwegian',
+    'OC' => 'Occitan',
+    'PS' => 'Pashto',
+    'GN' => 'Plautdietsch',
+    'PL' => 'Polish',
+    'BR' => 'Portuguese',
+    'PA' => 'Punjabi',
+    'RO' => 'Romanian',
+    'RU' => 'Russian',
+    'SR' => 'Serbian',
+    'SK' => 'Slovak',
+    'SL' => 'Slovenian',
+    'SP' => 'Spanish',
+    'SI' => 'Swahili',
+    'SW' => 'Swedish',
+    'CH' => 'Swiss',
+    'TL' => 'Tagalog',
+    'TT' => 'Tatarish',
+    'TH' => 'Thai',
+    'TR' => 'Turkish',
+    'TK' => 'Turkmen',
+    'UA' => 'Ukrainian',
+    'UZ' => 'Uzbek',
+    'VU' => 'Vietnamese',
+    'CY' => 'Welsh',
+    'SN' => 'Wolof',
+    'JI' => 'Yiddish - transliterated',
+    'YI' => 'Yiddish - unicode',
+  ];
+}
